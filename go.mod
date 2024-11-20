@@ -1,4 +1,4 @@
-module AmanahPro/commoon
+module github.com/NHadi/AmanahPro-common
 
 go 1.23.0
 
