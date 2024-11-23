@@ -14,7 +14,7 @@ import (
 func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		logrus.Infof("Authorization header received: %s", authHeader) // Log the header for debugging
+		logrus.Infof("Authorization header received: %s", authHeader)
 
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			logrus.Warn("Unauthorized access: Missing or malformed Authorization header")
@@ -23,9 +23,9 @@ func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 			return
 		}
 
-		// Extract token and validate with jwtSecret
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		claims := &models.JWTClaims{}
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				logrus.Errorf("Unexpected signing method: %v", token.Header["alg"])
 				return nil, fmt.Errorf("unexpected signing method")
@@ -40,18 +40,15 @@ func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 			return
 		}
 
-		// Extract claims and add to context
-		if claims, ok := token.Claims.(*models.JWTClaims); ok {
-			c.Set("user", claims) // Add claims to the context
-			logrus.Infof("User authenticated: %s", claims.Username)
-		} else {
-			logrus.Warn("Failed to extract claims from token")
+		if claims.UserID <= 0 {
+			logrus.Warn("Invalid claims: UserID is missing or invalid")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: Invalid claims"})
 			c.Abort()
 			return
 		}
 
-		logrus.Info("Token validated successfully")
+		logrus.Infof("User authenticated: %s", claims.Username)
+		c.Set("user", claims)
 		c.Next()
 	}
 }
