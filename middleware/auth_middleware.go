@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/NHadi/AmanahPro-common/models"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -35,6 +36,17 @@ func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		if err != nil || !token.Valid {
 			logrus.WithError(err).Warn("Invalid JWT token")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: Invalid token"})
+			c.Abort()
+			return
+		}
+
+		// Extract claims and add to context
+		if claims, ok := token.Claims.(*models.JWTClaims); ok {
+			c.Set("user", claims) // Add claims to the context
+			logrus.Infof("User authenticated: %s", claims.Username)
+		} else {
+			logrus.Warn("Failed to extract claims from token")
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: Invalid claims"})
 			c.Abort()
 			return
 		}
