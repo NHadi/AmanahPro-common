@@ -1,7 +1,6 @@
 package messagebroker
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/streadway/amqp"
@@ -17,20 +16,15 @@ func NewRabbitMQPublisher(service *RabbitMQService) *RabbitMQPublisher {
 }
 
 // Publish sends a message to the specified queue
-func (p *RabbitMQPublisher) Publish(queueName string, message interface{}) error {
-	body, err := json.Marshal(message)
-	if err != nil {
-		return fmt.Errorf("failed to marshal message: %v", err)
-	}
-
-	err = p.service.channel.Publish(
+func (p *RabbitMQPublisher) Publish(queueName string, message []byte) error {
+	err := p.service.channel.Publish(
 		"",        // Default exchange
 		queueName, // Queue name
 		false,     // Mandatory
 		false,     // Immediate
 		amqp.Publishing{
 			ContentType: "application/json",
-			Body:        body,
+			Body:        message,
 		},
 	)
 	if err != nil {
