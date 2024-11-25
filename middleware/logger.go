@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/olivere/elastic/v7"
 	"go.uber.org/zap"
@@ -12,10 +13,21 @@ import (
 // InitializeLogger sets up a Zap logger with Elasticsearch integration.
 func InitializeLogger(serviceName, elasticURL, indexName string) (*zap.Logger, error) {
 	// Create an Elasticsearch client
-	client, err := elastic.NewClient(elastic.SetURL(elasticURL))
+	client, err := elastic.NewClient(
+		elastic.SetURL(elasticURL),        // Set the Elasticsearch URL
+		elastic.SetSniff(false),           // Disable sniffing to avoid cluster detection issues
+		elastic.SetHealthcheckInterval(0), // Disable periodic health checks for simplicity
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Elasticsearch client: %w", err)
 	}
+
+	// Test connection to Elasticsearch
+	info, code, err := client.Ping(elasticURL).Do(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to ping Elasticsearch: %w", err)
+	}
+	log.Printf("Connected to Elasticsearch [Version: %s] with status code %d\n", info.Version.Number, code)
 
 	// Define an Elasticsearch syncer
 	esSyncer := &elasticSyncer{
@@ -51,11 +63,15 @@ type elasticSyncer struct {
 }
 
 func (es *elasticSyncer) Write(p []byte) (int, error) {
+	// Send log entry to Elasticsearch
 	_, err := es.client.Index().
 		Index(es.index).
 		BodyString(string(p)).
 		Do(context.Background())
-	return len(p), err
+	if err != nil {
+		return 0, fmt.Errorf("failed to write log to Elasticsearch: %w", err)
+	}
+	return len(p), nil
 }
 
 func (es *elasticSyncer) Sync() error {
