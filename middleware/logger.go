@@ -63,7 +63,7 @@ type elasticSyncer struct {
 }
 
 func (es *elasticSyncer) Write(p []byte) (int, error) {
-	// Send log entry to Elasticsearch
+	// Send log entry to Elasticsearc h
 	_, err := es.client.Index().
 		Index(es.index).
 		BodyString(string(p)).
