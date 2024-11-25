@@ -14,9 +14,9 @@ import (
 func InitializeLogger(serviceName, elasticURL, indexName string) (*zap.Logger, error) {
 	// Create an Elasticsearch client
 	client, err := elastic.NewClient(
-		elastic.SetURL(elasticURL),    // Set the Elasticsearch URL
-		elastic.SetSniff(false),       // Disable sniffing
-		elastic.SetHealthcheck(false), // Disable health checks to avoid the ticker issue
+		elastic.SetURL(elasticURL),
+		elastic.SetSniff(false),
+		elastic.SetHealthcheck(false),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Elasticsearch client: %w", err)
