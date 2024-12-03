@@ -18,7 +18,7 @@ func NewRabbitMQConsumer(service *RabbitMQService) *RabbitMQConsumer {
 
 // Consume starts listening to messages and processes them with a handler
 func (c *RabbitMQConsumer) Consume(queueName string, handler func(msg amqp.Delivery) error) error {
-	msgs, err := c.service.channel.Consume(
+	msgs, err := c.service.Channel.Consume(
 		queueName,
 		"",    // Consumer tag
 		true,  // Auto-ack

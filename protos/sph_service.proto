@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package sph_service;
+
+// Update the go_package option to match the shared repository path
+option go_package = "github.com/NHadi/AmanahPro-common/protos";
+
+service SphService {
+  rpc GetSphDetails(GetSphDetailsRequest) returns (GetSphDetailsResponse);
+}
+
+message GetSphDetailsRequest {
+  int32 SphId = 1;
+}
+
+message GetSphDetailsResponse {
+  repeated SphSection sections = 1;
+}
+
+message SphSection {
+  int32 SphSectionId = 1;
+  string SectionTitle = 2;
+  repeated SphDetail details = 3;
+}
+
+message SphDetail {
+  int32 SphDetailId = 1;
+  string ItemDescription = 2;
+  double Quantity = 3;
+  string Unit = 4;
+  double UnitPrice = 5;
+  double DiscountPrice = 6;
+}
