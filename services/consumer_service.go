@@ -76,8 +76,11 @@ func (c *ConsumerService) StartConsumer(channel *amqp.Channel, concurrency int) 
 	select {} // Keep the consumer running
 }
 
-// saveEventToElasticsearch saves the entire event (Payload + Meta) to Elasticsearch
-func (c *ConsumerService) saveEventToElasticsearch(event interface{}) error {
+func (c *ConsumerService) saveEventToElasticsearch(event struct {
+	Event   string                 `json:"event"`
+	Payload map[string]interface{} `json:"payload"`
+	Meta    map[string]interface{} `json:"meta"`
+}) error {
 	// Marshal the event into JSON
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -85,7 +88,7 @@ func (c *ConsumerService) saveEventToElasticsearch(event interface{}) error {
 	}
 
 	// Generate a unique document ID (optional)
-	docID := fmt.Sprintf("%s-%d", event.(map[string]interface{})["event"], time.Now().UnixNano())
+	docID := fmt.Sprintf("%s-%d", event.Event, time.Now().UnixNano())
 
 	// Index the document in Elasticsearch
 	res, err := c.esClient.Index(
