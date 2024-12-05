@@ -108,14 +108,18 @@ func (c *ConsumerService) handleCreatedOrUpdated(payload map[string]interface{},
 		idField = field
 	}
 
-	// Retrieve document ID
-	docID, ok := payload[idField].(float64) // JSON numbers are float64
-	if !ok {
-		return fmt.Errorf("missing or invalid document ID (field: %s) in payload", idField)
+	docID, ok := payload[idField]
+	if !ok || docID == nil {
+		log.Printf("Missing document ID for field %s in payload: %v", idField, payload)
+		return fmt.Errorf("missing document ID for field %s", idField)
 	}
 
-	// Convert float64 ID to string for Elasticsearch
-	docIDStr := fmt.Sprintf("%.0f", docID)
+	// Convert docID to string
+	docIDStr, err := convertToString(docID)
+	if err != nil {
+		log.Printf("Invalid document ID for field %s: %v", idField, err)
+		return fmt.Errorf("invalid document ID for field %s: %w", idField, err)
+	}
 
 	// Log the audit trail
 	traceID := meta["traceId"].(string)
@@ -130,20 +134,43 @@ func (c *ConsumerService) handleCreatedOrUpdated(payload map[string]interface{},
 	return c.indexDocument(docIDStr, payload)
 }
 
+// convertToString safely converts an interface to a string
+func convertToString(value interface{}) (string, error) {
+	switch v := value.(type) {
+	case string:
+		return v, nil
+	case float64:
+		return fmt.Sprintf("%.0f", v), nil // Convert float64 to an integer-like string
+	case int:
+		return fmt.Sprintf("%d", v), nil
+	case int32, int64:
+		return fmt.Sprintf("%d", v), nil
+	default:
+		return "", fmt.Errorf("unsupported type: %T", value)
+	}
+}
+
 // handleDeleted handles "Deleted" events
 func (c *ConsumerService) handleDeleted(payload map[string]interface{}, meta map[string]interface{}) error {
-	idField := "id"
+	idField := "id" // Default primary key field
 
+	// Check for custom primary key field in metadata (optional)
 	if field, exists := meta["idField"].(string); exists {
 		idField = field
 	}
 
-	docID, ok := payload[idField].(float64)
-	if !ok {
-		return fmt.Errorf("missing or invalid document ID (field: %s) in payload", idField)
+	docID, ok := payload[idField]
+	if !ok || docID == nil {
+		log.Printf("Missing document ID for field %s in payload: %v", idField, payload)
+		return fmt.Errorf("missing document ID for field %s", idField)
 	}
 
-	docIDStr := fmt.Sprintf("%.0f", docID)
+	// Convert docID to string
+	docIDStr, err := convertToString(docID)
+	if err != nil {
+		log.Printf("Invalid document ID for field %s: %v", idField, err)
+		return fmt.Errorf("invalid document ID for field %s: %w", idField, err)
+	}
 
 	// Log the audit trail
 	traceID := meta["traceId"].(string)
