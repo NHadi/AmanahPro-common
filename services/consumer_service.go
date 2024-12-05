@@ -99,19 +99,41 @@ func (c *ConsumerService) processMessage(msg []byte) error {
 	return handler(event.Payload, event.Meta)
 }
 
-// handleCreatedOrUpdated handles "Created" or "Updated" events
+// handleCreatedOrUpdated handles "Created" or "Updated" events and logs an audit trail
 func (c *ConsumerService) handleCreatedOrUpdated(payload map[string]interface{}, meta map[string]interface{}) error {
-	idField := "id" // Default primary key field
-
-	// Check for custom primary key field in metadata (optional)
-	if field, exists := meta["idField"].(string); exists {
-		idField = field
+	// Extract idField from metadata
+	idField, ok := meta["idField"].(string)
+	if !ok || idField == "" {
+		log.Printf("Invalid or missing idField in meta: %v", meta)
+		return fmt.Errorf("invalid or missing idField")
 	}
 
-	docID, ok := payload[idField]
+	// Extract action from metadata
+	action, ok := meta["action"].(string)
+	if !ok || action == "" {
+		action = "UPDATE" // Default action if not provided
+	}
+
+	// Extract traceID from metadata
+	traceID, _ := meta["traceId"].(string)
+
+	// Extract userID from metadata
+	userID, _ := meta["userId"].(int)
+
+	// Extract newData and oldData from payload
+	newData, ok := payload["newData"].(map[string]interface{})
+	if !ok {
+		log.Printf("Missing or invalid newData in payload: %v", payload)
+		return fmt.Errorf("missing or invalid newData in payload")
+	}
+
+	oldData, _ := payload["oldData"].(map[string]interface{}) // oldData is optional
+
+	// Retrieve document ID from newData
+	docID, ok := newData[idField]
 	if !ok || docID == nil {
-		log.Printf("Missing document ID for field %s in payload: %v", idField, payload)
-		return fmt.Errorf("missing document ID for field %s", idField)
+		log.Printf("Missing document ID for field %s in newData: %v", idField, newData)
+		return fmt.Errorf("missing document ID for field %s in newData", idField)
 	}
 
 	// Convert docID to string
@@ -121,17 +143,14 @@ func (c *ConsumerService) handleCreatedOrUpdated(payload map[string]interface{},
 		return fmt.Errorf("invalid document ID for field %s: %w", idField, err)
 	}
 
-	// Log the audit trail
-	traceID := meta["traceId"].(string)
-	userID := int(meta["userId"].(float64))
-	action := meta["action"].(string)
-	oldData := meta["oldData"] // Optional old data for updates
-	if err := c.logAuditTrail(traceID, action, c.index, docIDStr, userID, payload, oldData); err != nil {
-		log.Printf("Error logging audit trail: %v", err)
+	// Log audit trail
+	err = c.logAuditTrail(traceID, action, c.index, docIDStr, int(userID), newData, oldData)
+	if err != nil {
+		log.Printf("TraceID: %s - Error logging audit trail: %v", traceID, err)
 	}
 
-	log.Printf("Indexing document with ID %s", docIDStr)
-	return c.indexDocument(docIDStr, payload)
+	// Index the updated document
+	return c.indexDocument(docIDStr, newData)
 }
 
 // convertToString safely converts an interface to a string
@@ -159,6 +178,7 @@ func (c *ConsumerService) handleDeleted(payload map[string]interface{}, meta map
 		idField = field
 	}
 
+	// Retrieve document ID from payload
 	docID, ok := payload[idField]
 	if !ok || docID == nil {
 		log.Printf("Missing document ID for field %s in payload: %v", idField, payload)
@@ -172,15 +192,22 @@ func (c *ConsumerService) handleDeleted(payload map[string]interface{}, meta map
 		return fmt.Errorf("invalid document ID for field %s: %w", idField, err)
 	}
 
+	// Extract metadata
+	traceID, _ := meta["traceId"].(string)
+	userID, _ := meta["userId"].(int)
+
 	// Log the audit trail
-	traceID := meta["traceId"].(string)
-	userID := int(meta["userId"].(float64))
-	action := "Deleted"
+	action := "DELETE"
 	oldData := payload
-	if err := c.logAuditTrail(traceID, action, c.index, docIDStr, userID, nil, oldData); err != nil {
-		log.Printf("Error logging audit trail: %v", err)
+	if traceID != "" && userID != 0 {
+		if err := c.logAuditTrail(traceID, action, c.index, docIDStr, int(userID), nil, oldData); err != nil {
+			log.Printf("Error logging audit trail for document ID %s: %v", docIDStr, err)
+		}
+	} else {
+		log.Printf("Skipping audit trail logging due to missing traceID or userID for document ID %s", docIDStr)
 	}
 
+	// Proceed with deleting the document
 	log.Printf("Deleting document with ID %s", docIDStr)
 	return c.deleteDocument(docIDStr)
 }
