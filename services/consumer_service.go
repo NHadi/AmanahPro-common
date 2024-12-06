@@ -77,10 +77,12 @@ func (c *ConsumerService) StartConsumer(channel *amqp.Channel, concurrency int) 
 }
 
 func (c *ConsumerService) saveEventToElasticsearch(event struct {
-	Event   string                 `json:"event"`
-	Payload map[string]interface{} `json:"payload"`
-	Meta    map[string]interface{} `json:"meta"`
+	Event     string                 `json:"event"`
+	Payload   map[string]interface{} `json:"payload"`
+	Meta      map[string]interface{} `json:"meta"`
+	Timestamp string                 `json:"timestamp"` // Add timestamp field
 }) error {
+
 	// Marshal the event into JSON
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -111,10 +113,13 @@ func (c *ConsumerService) processMessage(msg []byte) error {
 	log.Printf("Processing message from queue %s: %s", c.queueName, string(msg))
 
 	var event struct {
-		Event   string                 `json:"event"`
-		Payload map[string]interface{} `json:"payload"`
-		Meta    map[string]interface{} `json:"meta"` // Optional metadata
+		Event     string                 `json:"event"`
+		Payload   map[string]interface{} `json:"payload"`
+		Meta      map[string]interface{} `json:"meta"`      // Optional metadata
+		Timestamp string                 `json:"timestamp"` // Add timestamp field
 	}
+
+	event.Timestamp = time.Now().Format(time.RFC3339)
 
 	// Parse the message
 	if err := json.Unmarshal(msg, &event); err != nil {
