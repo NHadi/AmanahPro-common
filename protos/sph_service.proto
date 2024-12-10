@@ -30,4 +30,5 @@ message SphDetail {
   string Unit = 4;
   double UnitPrice = 5;
   double DiscountPrice = 6;
+  double TotalPrice = 7;
 }
