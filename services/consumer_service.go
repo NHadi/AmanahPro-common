@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"time"
 
@@ -202,6 +203,12 @@ func (c *ConsumerService) indexDocument(docID string, document map[string]interf
 		return fmt.Errorf("failed to index document: %w", err)
 	}
 	defer res.Body.Close()
+
+	if res.IsError() {
+		body, _ := io.ReadAll(res.Body)
+		log.Printf("Elasticsearch indexing error: %s", body)
+		return nil
+	}
 
 	log.Printf("Document indexed in %s: %s", c.index, docID)
 	return nil
